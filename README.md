@@ -25,7 +25,7 @@
     ```
 3. 使用 SQL 檔案初始化資料庫 
    port 已設為 5432 (.env檔案、app.py、config.py、main.py)
-   資料庫密碼設為 0000，如需更改請至 DB_utils.py 第 14 行、config.py 第 10 行、.env 檔 2 處更改！！！！！！！！！！
+   資料庫密碼設為 0000，如需更改請至 DB_utils.py 第 14 行、config.py 第 10 行、.env 檔 3 處更改！！！！！！！！！！
     ```bash
     psql -U <username> -f init_bello_db.sql
     ```
