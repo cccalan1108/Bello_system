@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify
 from DB_utils import DatabaseManager
+from jwt_utils import require_auth
 
 get_profile = Blueprint("get_profile", __name__)
 
 @get_profile.route('/user-profile/<int:user_id>', methods=['GET'])
+@require_auth
 def get_user_profile(user_id):
     try:
         db = DatabaseManager()

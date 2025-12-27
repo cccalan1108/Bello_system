@@ -5,17 +5,19 @@ SET client_encoding = 'UTF8';
 -- Create USER table
 CREATE TABLE "USER" (
     User_id BIGINT PRIMARY KEY,
-    Account VARCHAR(15) NOT NULL UNIQUE,
-    User_name VARCHAR(20) NOT NULL,
-    User_nickname VARCHAR(20) NOT NULL,
-    Password VARCHAR(15) NOT NULL,
-    Nationality VARCHAR(20) NOT NULL,
+    Account VARCHAR(50) NOT NULL UNIQUE,
+    User_name VARCHAR(50) NOT NULL,
+    User_nickname VARCHAR(50) NOT NULL,
+    Password VARCHAR(100),
+    Nationality VARCHAR(20),
     City VARCHAR(20),
-    Phone VARCHAR(20) NOT NULL,
-    Email VARCHAR(50) NOT NULL UNIQUE,
-    Sex VARCHAR(10) NOT NULL,
-    Birthday DATE NOT NULL,
-    Register_time TIMESTAMP NOT NULL
+    Phone VARCHAR(20),
+    Email VARCHAR(100) NOT NULL UNIQUE,
+    Sex VARCHAR(10),
+    Birthday DATE,
+    Register_time TIMESTAMP NOT NULL,
+    Google_id VARCHAR(100) UNIQUE,
+    Avatar_url TEXT
 );
 \copy "USER" FROM 'users.csv' WITH (FORMAT csv);
 -- Create USER_DETAIL table
@@ -50,10 +52,14 @@ CREATE TABLE MEETING (
     Start_time TIME NOT NULL,
     End_time TIME NOT NULL,
     Event_city VARCHAR(20) NOT NULL,
-    Event_place VARCHAR(50) NOT NULL,
+    Event_place VARCHAR(100) NOT NULL,
+    Event_address VARCHAR(200),
+    Latitude DECIMAL(10, 8),
+    Longitude DECIMAL(11, 8),
     Status VARCHAR(20) NOT NULL CHECK (Status IN ('Ongoing', 'Finished', 'Canceled')),
     Num_participant INTEGER NOT NULL,
-    Max_num_participant INTEGER
+    Max_num_participant INTEGER,
+    Password VARCHAR(100)
 );
 
 -- Create MEETING_LANGUAGE table
@@ -95,4 +101,21 @@ CREATE TABLE PRIVATE_MESSAGE (
     Sending_time TIMESTAMP,
     Content VARCHAR(200),
     PRIMARY KEY (Sender_id, Receiver_id, Sending_time)
+);
+
+-- Create FRIENDSHIP table for friend relationships
+CREATE TABLE FRIENDSHIP (
+    User_id BIGINT REFERENCES "USER"(User_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    Friend_id BIGINT REFERENCES "USER"(User_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    Status VARCHAR(20) NOT NULL CHECK (Status IN ('pending', 'accepted', 'rejected')),
+    Created_at TIMESTAMP DEFAULT NOW(),
+    Updated_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (User_id, Friend_id)
+);
+
+-- Create USER_ONLINE_STATUS table for tracking online status
+CREATE TABLE USER_ONLINE_STATUS (
+    User_id BIGINT PRIMARY KEY REFERENCES "USER"(User_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    Is_online BOOLEAN DEFAULT FALSE,
+    Last_active TIMESTAMP DEFAULT NOW()
 );

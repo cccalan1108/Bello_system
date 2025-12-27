@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify, request
 from DB_utils import DatabaseManager
+from jwt_utils import require_admin
 
 admin_chat_partners = Blueprint("admin_chat_partners", __name__)
 
 @admin_chat_partners.route('/admin/chat-partners/<user_id>', methods=['GET', 'OPTIONS'])
+@require_admin
 def get_chat_partners(user_id):
     if request.method == 'OPTIONS':
         return '', 204

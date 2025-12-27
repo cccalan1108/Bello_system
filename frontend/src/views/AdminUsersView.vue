@@ -37,10 +37,16 @@
             <td>{{ user.city }}</td>
             <td>
               <button 
-                class="btn btn-primary btn-sm"
+                class="btn btn-primary btn-sm me-2"
                 @click="showUserDetails(user.user_id)"
               >
                 查看詳細
+              </button>
+              <button 
+                class="btn btn-danger btn-sm"
+                @click="confirmDeleteUser(user)"
+              >
+                刪除
               </button>
             </td>
           </tr>
@@ -71,6 +77,38 @@
       </nav>
     </div>
     
+    <!-- 刪除確認 Modal -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">⚠️ 確認刪除用戶</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" v-if="userToDelete">
+            <p class="mb-3">你確定要刪除以下用戶嗎？此操作<strong>無法復原</strong>！</p>
+            <div class="alert alert-warning">
+              <p class="mb-1"><strong>帳號：</strong>{{ userToDelete.account }}</p>
+              <p class="mb-1"><strong>姓名：</strong>{{ userToDelete.user_name }}</p>
+              <p class="mb-0"><strong>Email：</strong>{{ userToDelete.email }}</p>
+            </div>
+            <p class="text-muted small">刪除後，該用戶的所有資料（包括聚會、聊天記錄、好友關係等）都將被刪除。</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button 
+              type="button" 
+              class="btn btn-danger" 
+              @click="deleteUser"
+              :disabled="isDeleting"
+            >
+              {{ isDeleting ? '刪除中...' : '確認刪除' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 詳細資訊 Modal -->
     <div class="modal fade" id="userDetailsModal" tabindex="-1">
       <div class="modal-dialog">
@@ -117,6 +155,7 @@
 
 <script>
 import { Modal } from 'bootstrap'
+import { apiGet, apiDelete } from '@/utils/api'
 
 export default {
   name: 'AdminUsersView',
@@ -126,6 +165,9 @@ export default {
       searchId: '',
       selectedUser: null,
       userModal: null,
+      deleteModal: null,
+      userToDelete: null,
+      isDeleting: false,
       currentPage: 1,
       totalUsers: 0,
       itemsPerPage: 100
@@ -153,34 +195,40 @@ export default {
     async fetchUsers() {
       try {
         const searchParam = this.searchId ? `&search=${this.searchId}` : '';
-        const response = await fetch(
-          `http://localhost:8800/api/admin/users?page=${this.currentPage}&limit=${this.itemsPerPage}${searchParam}`
+        const data = await apiGet(
+          `admin/users?page=${this.currentPage}&limit=${this.itemsPerPage}${searchParam}`
         )
-        const data = await response.json()
         if (data.status === 'success') {
           this.users = data.users
           this.totalUsers = data.total
         } else {
-          alert(data.message)
+          alert(data.message || '獲取用戶列表失敗')
         }
       } catch (error) {
         console.error('Error fetching users:', error)
-        alert('獲取用戶列表失敗')
+        if (error.message && error.message.includes('認證')) {
+          this.$router.push('/login')
+        } else {
+          alert('獲取用戶列表失敗')
+        }
       }
     },
     async showUserDetails(userId) {
       try {
-        const response = await fetch(`http://localhost:8800/api/admin/users/${userId}`)
-        const data = await response.json()
+        const data = await apiGet(`admin/users/${userId}`)
         if (data.status === 'success') {
           this.selectedUser = data
           this.userModal.show()
         } else {
-          alert(data.message)
+          alert(data.message || '獲取用戶詳細資訊失敗')
         }
       } catch (error) {
         console.error('Error fetching user details:', error)
-        alert('獲取用戶詳細資訊失敗')
+        if (error.message && error.message.includes('認證')) {
+          this.$router.push('/login')
+        } else {
+          alert('獲取用戶詳細資訊失敗')
+        }
       }
     },
     handleSearch: debounce(function() {
@@ -192,6 +240,31 @@ export default {
         this.currentPage = page
         this.fetchUsers()
       }
+    },
+    confirmDeleteUser(user) {
+      this.userToDelete = user
+      this.deleteModal.show()
+    },
+    async deleteUser() {
+      if (!this.userToDelete) return
+      
+      this.isDeleting = true
+      try {
+        const data = await apiDelete(`admin/users/${this.userToDelete.user_id}`)
+        if (data.status === 'success') {
+          alert('用戶已成功刪除')
+          this.deleteModal.hide()
+          this.userToDelete = null
+          this.fetchUsers() // 重新載入列表
+        } else {
+          alert(data.message || '刪除用戶失敗')
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert(error.message || '刪除用戶失敗')
+      } finally {
+        this.isDeleting = false
+      }
     }
   },
   watch: {
@@ -201,6 +274,7 @@ export default {
   },
   mounted() {
     this.userModal = new Modal(document.getElementById('userDetailsModal'))
+    this.deleteModal = new Modal(document.getElementById('deleteConfirmModal'))
     this.fetchUsers()
   }
 }

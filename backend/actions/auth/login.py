@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from DB_utils import DatabaseManager
+from jwt_utils import generate_token
 
 login = Blueprint("login", __name__)
 
@@ -13,9 +14,19 @@ def login_route():
         result = db.verify_login(account, password)
         
         if result.get('status') == 'success':
+            user = result.get('user')
+            
+            # 生成 JWT token
+            token = generate_token(
+                user_id=user['user_id'],
+                role=user['role'],
+                user_name=user['user_name']
+            )
+            
             return jsonify({
                 'status': 'success',
-                'user': result.get('user'),
+                'user': user,
+                'token': token,
                 'message': '登入成功'
             })
         else:

@@ -1,16 +1,19 @@
 from flask import Blueprint, request, jsonify
 from DB_utils import DatabaseManager
+from jwt_utils import require_auth
 
 leave_meeting = Blueprint("leave_meeting", __name__)
 
 @leave_meeting.route('/leave-meeting', methods=['POST', 'OPTIONS'])
+@require_auth
 def handle_leave_meeting():
     if request.method == 'OPTIONS':
         return '', 204
         
     try:
         data = request.get_json()
-        user_id = data.get('user_id')
+        # 從 JWT token 獲取 user_id
+        user_id = request.current_user['user_id']
         meeting_id = data.get('meeting_id')
         
         if not user_id or not meeting_id:

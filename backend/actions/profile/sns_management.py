@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from DB_utils import DatabaseManager
+from jwt_utils import require_auth
 
 sns_management = Blueprint("sns_management", __name__)
 
 @sns_management.route('/add-sns', methods=['POST', 'OPTIONS'])
+@require_auth
 def add_sns():
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'success'})
@@ -14,7 +16,8 @@ def add_sns():
         
     try:
         data = request.get_json()
-        user_id = data.get('user_id')
+        # 從 JWT token 獲取 user_id
+        user_id = request.current_user['user_id']
         platform = data.get('platform')
         sns_id = data.get('sns_id')
 
@@ -44,7 +47,14 @@ def add_sns():
         }), 500
 
 @sns_management.route('/sns-accounts/<int:user_id>', methods=['GET'])
+@require_auth
 def get_sns_accounts(user_id):
+    # 驗證請求的 user_id 與 token 中的 user_id 一致
+    if request.current_user['user_id'] != user_id:
+        return jsonify({
+            'status': 'error',
+            'message': '無權限訪問'
+        }), 403
     try:
         db = DatabaseManager()
         accounts = db.get_sns_details(user_id)
@@ -60,6 +70,7 @@ def get_sns_accounts(user_id):
         }), 500
 
 @sns_management.route('/remove-sns', methods=['POST', 'OPTIONS'])
+@require_auth
 def remove_sns():
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'success'})
@@ -70,7 +81,8 @@ def remove_sns():
         
     try:
         data = request.get_json()
-        user_id = data.get('user_id')
+        # 從 JWT token 獲取 user_id
+        user_id = request.current_user['user_id']
         platform = data.get('platform')
 
         if not all([user_id, platform]):

@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify, request
 from DB_utils import DatabaseManager
+from jwt_utils import require_admin
 
 admin_remove_user = Blueprint("admin_remove_user", __name__)
 
 @admin_remove_user.route('/admin/remove-user-from-meeting', methods=['POST', 'OPTIONS'])
+@require_admin
 def handle_remove_user():
     if request.method == 'OPTIONS':
         return '', 204

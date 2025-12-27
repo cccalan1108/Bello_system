@@ -1,14 +1,15 @@
 <template>
   <div class="admin-user-chat-records">
-    <h2>用戶聊天記錄查詢</h2>
+    <h2>用戶聊天記錄</h2>
     
+    <!-- 搜尋區塊 -->
     <div class="search-section mb-4">
-      <div class="input-group" style="max-width: 300px;">
+      <div class="input-group" style="max-width: 400px;">
         <input 
           type="text" 
           class="form-control" 
           v-model="searchUserId"
-          placeholder="輸入用戶ID"
+          placeholder="輸入用戶ID查詢特定用戶的聊天"
           @keyup.enter="searchUserChats"
         >
         <button 
@@ -17,36 +18,97 @@
         >
           查詢
         </button>
-      </div>
-    </div>
-
-    <!-- 聊天對象列表 -->
-    <div v-if="chatPartners.length" class="chat-partners mb-4">
-      <h3>聊天對象列表</h3>
-      <div class="list-group">
-        <button
-          v-for="partner in chatPartners"
-          :key="partner.user_id"
-          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-          @click="viewChatHistory(partner.user_id)"
+        <button 
+          class="btn btn-outline-secondary" 
+          @click="clearSearch"
+          v-if="searchUserId || selectedConversation"
         >
-          <div>
-            <span class="fw-bold">{{ partner.nickname || partner.user_name }}</span>
-            <small class="text-muted ms-2">(ID: {{ partner.user_id }})</small>
-          </div>
-          <span class="badge bg-primary rounded-pill">{{ partner.message_count }} 則訊息</span>
+          清除
         </button>
       </div>
     </div>
 
-    <!-- 聊天記錄顯示 -->
-    <div v-if="chatHistory.length" class="chat-history">
-      <h3>最近聊天記錄</h3>
+    <!-- 所有對話列表 -->
+    <div v-if="!selectedConversation" class="conversations-list">
+      <h3>所有私人聊天對話 <small class="text-muted">(共 {{ totalConversations }} 組對話)</small></h3>
+      
+      <div v-if="loading" class="text-center py-4">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">載入中...</span>
+        </div>
+      </div>
+      
+      <div v-else class="table-responsive">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>用戶 1</th>
+              <th>用戶 2</th>
+              <th>訊息數</th>
+              <th>最後訊息時間</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="conv in conversations" :key="`${conv.user1_id}-${conv.user2_id}`">
+              <td>
+                <div>{{ conv.user1_nickname || conv.user1_name }}</div>
+                <small class="text-muted">ID: {{ conv.user1_id }}</small>
+              </td>
+              <td>
+                <div>{{ conv.user2_nickname || conv.user2_name }}</div>
+                <small class="text-muted">ID: {{ conv.user2_id }}</small>
+              </td>
+              <td><span class="badge bg-primary">{{ conv.message_count }}</span></td>
+              <td>{{ formatTime(conv.last_message_time) }}</td>
+              <td>
+                <button 
+                  class="btn btn-sm btn-outline-primary"
+                  @click="viewConversation(conv)"
+                >
+                  查看記錄
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- 分頁 -->
+      <nav v-if="totalPages > 1" class="mt-3">
+        <ul class="pagination justify-content-center">
+          <li class="page-item" :class="{ disabled: currentPage === 1 }">
+            <a class="page-link" href="#" @click.prevent="changePage(currentPage - 1)">上一頁</a>
+          </li>
+          <li v-for="page in displayedPages" :key="page" class="page-item" :class="{ active: page === currentPage }">
+            <a class="page-link" href="#" @click.prevent="changePage(page)">{{ page }}</a>
+          </li>
+          <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+            <a class="page-link" href="#" @click.prevent="changePage(currentPage + 1)">下一頁</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+
+    <!-- 聊天記錄詳情 -->
+    <div v-if="selectedConversation" class="chat-detail">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>
+          {{ selectedConversation.user1_nickname || selectedConversation.user1_name }}
+          <i class="bi bi-arrow-left-right mx-2"></i>
+          {{ selectedConversation.user2_nickname || selectedConversation.user2_name }}
+          的聊天記錄
+        </h3>
+        <button class="btn btn-secondary" @click="backToList">
+          ← 返回列表
+        </button>
+      </div>
+      
       <div class="chat-messages">
         <div v-for="message in chatHistory" 
              :key="message.message_id"
              class="message"
-             :class="{ 'message-mine': message.sender_id === searchUserId }">
+             :class="{ 'message-right': message.sender_id === selectedConversation.user1_id }">
           <div class="message-content">
             <div class="message-header">
               <span class="sender">{{ message.sender_name }}</span>
@@ -61,69 +123,154 @@
 </template>
 
 <script>
+import { apiGet, apiPost } from '@/utils/api'
+
 export default {
   name: 'AdminUserChatRecords',
   data() {
     return {
       searchUserId: '',
-      chatPartners: [],
-      chatHistory: [],
-      selectedPartnerId: null
+      conversations: [],
+      totalConversations: 0,
+      currentPage: 1,
+      itemsPerPage: 20,
+      loading: false,
+      selectedConversation: null,
+      chatHistory: []
+    }
+  },
+  computed: {
+    totalPages() {
+      return Math.ceil(this.totalConversations / this.itemsPerPage)
+    },
+    displayedPages() {
+      const delta = 2
+      const range = []
+      for (let i = Math.max(1, this.currentPage - delta); 
+           i <= Math.min(this.totalPages, this.currentPage + delta); 
+           i++) {
+        range.push(i)
+      }
+      return range
     }
   },
   methods: {
+    async loadConversations() {
+      this.loading = true
+      try {
+        const data = await apiGet(`admin/all-private-chats?page=${this.currentPage}&limit=${this.itemsPerPage}`)
+        
+        if (data.status === 'success') {
+          this.conversations = data.conversations
+          this.totalConversations = data.total
+        } else {
+          alert(data.message || '獲取對話列表失敗')
+        }
+      } catch (error) {
+        console.error('Error loading conversations:', error)
+        if (error.message && error.message.includes('認證')) {
+          this.$router.push('/login')
+        } else {
+          alert('獲取對話列表失敗')
+        }
+      } finally {
+        this.loading = false
+      }
+    },
+    
     async searchUserChats() {
       if (!this.searchUserId.trim()) {
         alert('請輸入用戶ID')
         return
       }
 
+      this.loading = true
       try {
-        const response = await fetch(`http://localhost:8800/api/admin/chat-partners/${this.searchUserId}`)
-        const data = await response.json()
+        const data = await apiGet(`admin/chat-partners/${this.searchUserId}`)
         
         if (data.status === 'success') {
-          this.chatPartners = data.partners
-          this.chatHistory = []
+          // 將搜尋結果轉換為對話格式
+          this.conversations = data.partners.map(partner => ({
+            user1_id: parseInt(this.searchUserId),
+            user2_id: partner.user_id,
+            user1_name: '搜尋用戶',
+            user1_nickname: `ID: ${this.searchUserId}`,
+            user2_name: partner.user_name,
+            user2_nickname: partner.nickname,
+            message_count: partner.message_count,
+            last_message_time: null
+          }))
+          this.totalConversations = data.partners.length
+          this.selectedConversation = null
         } else {
           alert(data.message || '查詢失敗')
         }
       } catch (error) {
         console.error('Error searching user chats:', error)
-        alert('查詢失敗')
+        if (error.message && error.message.includes('認證')) {
+          this.$router.push('/login')
+        } else {
+          alert('查詢失敗')
+        }
+      } finally {
+        this.loading = false
       }
     },
-
-    async viewChatHistory(partnerId) {
+    
+    async viewConversation(conv) {
       try {
-        const response = await fetch(`http://localhost:8800/api/admin/chat-history`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            user1_id: this.searchUserId,
-            user2_id: partnerId,
-            limit: 20
-          })
+        const data = await apiPost('admin/chat-history', {
+          user1_id: conv.user1_id,
+          user2_id: conv.user2_id,
+          limit: 100
         })
         
-        const data = await response.json()
         if (data.status === 'success') {
           this.chatHistory = data.messages
-          this.selectedPartnerId = partnerId
+          this.selectedConversation = conv
         } else {
           alert(data.message || '獲取聊天記錄失敗')
         }
       } catch (error) {
         console.error('Error fetching chat history:', error)
-        alert('獲取聊天記錄失敗')
+        if (error.message && error.message.includes('認證')) {
+          this.$router.push('/login')
+        } else {
+          alert('獲取聊天記錄失敗')
+        }
+      }
+    },
+    
+    backToList() {
+      this.selectedConversation = null
+      this.chatHistory = []
+      if (!this.searchUserId) {
+        this.loadConversations()
+      }
+    },
+    
+    clearSearch() {
+      this.searchUserId = ''
+      this.selectedConversation = null
+      this.chatHistory = []
+      this.currentPage = 1
+      this.loadConversations()
+    },
+    
+    changePage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
+        this.loadConversations()
       }
     },
 
     formatTime(timestamp) {
+      if (!timestamp) return '-'
       return new Date(timestamp).toLocaleString()
     }
+  },
+  mounted() {
+    this.loadConversations()
   }
 }
 </script>
@@ -141,6 +288,7 @@ export default {
   border: 1px solid #dee2e6;
   border-radius: 4px;
   padding: 15px;
+  background-color: #fff;
 }
 
 .message {
@@ -148,7 +296,7 @@ export default {
   display: flex;
 }
 
-.message-mine {
+.message-right {
   justify-content: flex-end;
 }
 
@@ -159,7 +307,7 @@ export default {
   background-color: #f8f9fa;
 }
 
-.message-mine .message-content {
+.message-right .message-content {
   background-color: #007bff;
   color: white;
 }
@@ -178,8 +326,8 @@ export default {
   margin-left: 10px;
 }
 
-.message-mine .message-header,
-.message-mine .time {
+.message-right .message-header,
+.message-right .time {
   color: rgba(255, 255, 255, 0.8);
 }
 
@@ -193,5 +341,10 @@ export default {
 
 .list-group-item:hover {
   background-color: #f8f9fa;
+}
+
+.table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
 }
 </style>

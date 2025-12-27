@@ -1,9 +1,31 @@
 from flask import Blueprint, jsonify, request
 from DB_utils import DatabaseManager
+from jwt_utils import require_auth
 
 meeting_chat = Blueprint("meeting_chat", __name__)
 
+@meeting_chat.route('/meeting/<meeting_id>/participants', methods=['GET'])
+@require_auth
+def get_meeting_participants(meeting_id):
+    """獲取聚會的所有參與者"""
+    try:
+        db = DatabaseManager()
+        participants = db.get_meeting_participants(meeting_id)
+        
+        return jsonify({
+            'status': 'success',
+            'participants': participants
+        })
+        
+    except Exception as e:
+        print(f"Error getting meeting participants: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 @meeting_chat.route('/meeting-chat/<meeting_id>', methods=['GET', 'OPTIONS'])
+@require_auth
 def get_meeting_chat(meeting_id):
     if request.method == 'OPTIONS':
         return '', 204
@@ -31,6 +53,7 @@ def get_meeting_chat(meeting_id):
         }), 500
 
 @meeting_chat.route('/meeting-chat/send', methods=['POST', 'OPTIONS'])
+@require_auth
 def send_meeting_message():
     if request.method == 'OPTIONS':
         return '', 204
@@ -38,7 +61,8 @@ def send_meeting_message():
     try:
         data = request.get_json()
         meeting_id = data.get('meeting_id')
-        sender_id = data.get('sender_id')
+        # 從 JWT token 獲取 sender_id
+        sender_id = request.current_user['user_id']
         content = data.get('content')
         
         if not all([meeting_id, sender_id, content]):

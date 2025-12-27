@@ -80,6 +80,7 @@
 </template>
 
 <script>
+import { apiUrl } from '@/config/api'
 export default {
   name: 'RegisterView',
   data() {
@@ -114,7 +115,7 @@ export default {
           birthday: new Date(this.formData.birthday).toISOString().split('T')[0]
         }
 
-        const response = await fetch('http://localhost:8800/api/signup', {
+        const response = await fetch(apiUrl('signup'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -122,16 +123,43 @@ export default {
           body: JSON.stringify(formattedData),
         })
         
+        // 檢查響應狀態
+        if (!response.ok) {
+          // 如果不是 JSON 響應，嘗試獲取文本
+          const text = await response.text()
+          let errorMessage = '註冊失敗，請稍後再試'
+          
+          try {
+            // 嘗試解析為 JSON
+            const errorData = JSON.parse(text)
+            errorMessage = errorData.message || errorMessage
+          } catch (e) {
+            // 如果不是 JSON，使用狀態碼信息
+            if (response.status === 404) {
+              errorMessage = '無法連接到伺服器，請確認後端服務是否運行'
+            } else if (response.status === 500) {
+              errorMessage = '伺服器錯誤，請稍後再試'
+            }
+          }
+          
+          alert(errorMessage)
+          return
+        }
+        
         const data = await response.json()
         if (data.status === 'success') {
           alert('註冊成功！')
           this.$router.push('/login')
         } else {
-          alert(data.message)
+          alert(data.message || '註冊失敗')
         }
       } catch (error) {
         console.error('註冊錯誤:', error)
-        alert('註冊失敗，請稍後再試')
+        if (error instanceof SyntaxError) {
+          alert('無法解析伺服器響應，請確認後端服務是否正常運行')
+        } else {
+          alert('註冊失敗，請稍後再試')
+        }
       }
     }
   }

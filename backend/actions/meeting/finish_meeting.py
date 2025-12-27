@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from DB_utils import DatabaseManager
+from jwt_utils import require_auth
 
 finish_meeting = Blueprint("finish_meeting", __name__)
 
 @finish_meeting.route('/finish-meeting', methods=['POST', 'OPTIONS'])
+@require_auth
 def handle_finish_meeting():
     if request.method == 'OPTIONS':
         return '', 204

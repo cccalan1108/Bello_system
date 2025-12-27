@@ -1,35 +1,79 @@
 @import './base.css';
 
 #app {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
   font-weight: normal;
+  min-height: 100vh;
 }
 
-a,
-.green {
+a {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
+  color: var(--primary);
+  transition: all var(--transition-normal);
   padding: 3px;
+  border-radius: var(--radius-sm);
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+a:hover {
+  color: var(--primary-dark);
+  background-color: var(--primary-soft);
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+/* 🎯 頁面標題樣式 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  color: var(--gray-700);
+}
 
+h2 {
+  font-size: 1.75rem;
+  position: relative;
+  display: inline-block;
+}
+
+h2::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 60%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--pink) 100%);
+  border-radius: var(--radius-full);
+}
+
+h3 {
+  font-size: 1.25rem;
+  color: var(--gray-600);
+}
+
+/* 🌸 頁面容器動畫 */
+.page-container {
+  animation: fadeInUp 0.4s ease;
+}
+
+/* 🃏 列表卡片動畫 */
+.row > [class*="col-"] {
+  animation: fadeInUp 0.5s ease backwards;
+}
+
+.row > [class*="col-"]:nth-child(1) { animation-delay: 0.05s; }
+.row > [class*="col-"]:nth-child(2) { animation-delay: 0.1s; }
+.row > [class*="col-"]:nth-child(3) { animation-delay: 0.15s; }
+.row > [class*="col-"]:nth-child(4) { animation-delay: 0.2s; }
+.row > [class*="col-"]:nth-child(5) { animation-delay: 0.25s; }
+.row > [class*="col-"]:nth-child(6) { animation-delay: 0.3s; }
+
+/* 📱 響應式 */
+@media (max-width: 768px) {
   #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
+    padding: 0.5rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
   }
 }

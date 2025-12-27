@@ -31,6 +31,8 @@
   </template>
   
   <script>
+  import { getUser } from '@/utils/api'
+  
   export default {
     name: 'AdminLobby',
     methods: {
@@ -54,7 +56,7 @@
     },
     created() {
       // 檢查用戶是否為管理員
-      const user = JSON.parse(localStorage.getItem('user'))
+      const user = getUser()
       if (!user || user.role !== 'Admin') {
         this.$router.push('/login')
       }

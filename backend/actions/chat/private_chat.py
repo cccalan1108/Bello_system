@@ -1,12 +1,17 @@
 from flask import Blueprint, jsonify, request
 from DB_utils import DatabaseManager
+from jwt_utils import require_auth
 
 private_chat = Blueprint("private_chat", __name__)
 
-@private_chat.route('/my-chats/<user_id>', methods=['GET', 'OPTIONS'])
-def get_chat_list(user_id):
+@private_chat.route('/my-chats', methods=['GET', 'OPTIONS'])
+@require_auth
+def get_chat_list():
     if request.method == 'OPTIONS':
         return '', 204
+    
+    # 從 JWT token 獲取 user_id
+    user_id = request.current_user['user_id']
         
     try:
         db = DatabaseManager()
@@ -31,19 +36,21 @@ def get_chat_list(user_id):
         }), 500
 
 @private_chat.route('/private-chat/history', methods=['POST', 'OPTIONS'])
+@require_auth
 def get_chat_history():
     if request.method == 'OPTIONS':
         return '', 204
         
     try:
         data = request.get_json()
-        user1_id = data.get('user1_id')
+        # 從 JWT token 獲取當前用戶 ID
+        user1_id = request.current_user['user_id']
         user2_id = data.get('user2_id')
         
-        if not all([user1_id, user2_id]):
+        if not user2_id:
             return jsonify({
                 'status': 'error',
-                'message': '缺少必要參數'
+                'message': '缺少必要參數 user2_id'
             }), 400
             
         db = DatabaseManager()
@@ -62,13 +69,15 @@ def get_chat_history():
         }), 500
 
 @private_chat.route('/private-chat/send', methods=['POST', 'OPTIONS'])
+@require_auth
 def send_private_message():
     if request.method == 'OPTIONS':
         return '', 204
         
     try:
         data = request.get_json()
-        sender_id = data.get('sender_id')
+        # 從 JWT token 獲取 sender_id
+        sender_id = request.current_user['user_id']
         receiver_id = data.get('receiver_id')
         content = data.get('content')
         
@@ -99,10 +108,14 @@ def send_private_message():
             'message': str(e)
         }), 500
 
-@private_chat.route('/available-chat-users/<user_id>', methods=['GET', 'OPTIONS'])
-def get_available_users(user_id):
+@private_chat.route('/available-chat-users', methods=['GET', 'OPTIONS'])
+@require_auth
+def get_available_users():
     if request.method == 'OPTIONS':
         return '', 204
+    
+    # 從 JWT token 獲取 user_id
+    user_id = request.current_user['user_id']
         
     try:
         db = DatabaseManager()
